@@ -40,7 +40,7 @@ gs <- "https://docs.google.com/spreadsheets/d/1IaYYCcqSwfO38tADbsMOtJFpqMBWRBWmB
 
 aclimatacion <- gs %>% 
   range_read(ss = .,sheet = "aclimatacion") %>% 
-  mutate(across(1:8, as.factor))
+  mutate(across(1:6, as.factor))
 
 glimpse(aclimatacion)
 
@@ -56,9 +56,15 @@ glimpse(endurecimiento)
 Summary of the number of data points recorded for each treatment and evaluated variable.
 
 ```{r}
-sm <- inoculation %>%
-  group_by(Site, treat) %>%
-  summarise(across(pl_height:yield, ~ sum(!is.na(.))))
+sm <- aclimatacion %>%
+  group_by(Sustrato, Carbon) %>%
+  summarise(across(long_tallo_2meses:sobrevivencia, ~ sum(!is.na(.))))
+
+sm %>% kable(align = "c")
+
+sm <- endurecimiento %>%
+  group_by(PUÑO,CASCARILLA) %>%
+  summarise(across(long_tallo:area_foliar, ~ sum(!is.na(.))))
 
 sm %>% kable(align = "c")
 ```
@@ -66,22 +72,484 @@ sm %>% kable(align = "c")
 
 # Research Objective
 
-1. 
-1.
-
 ## RO 1
 
-```{r}
+### Longitud de tallo
 
+```{r}
+av <-  lm(long_tallo_2meses ~ Sustrato * Carbon, data = aclimatacion)
+
+anova(av)
+
+mc1 <- emmeans(av, ~ Sustrato | Carbon) %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  rename(sig1 = ".group")
+
+mc2 <- emmeans(av, ~ Carbon | Sustrato) %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  mutate(across(".group", ~ toupper(.))) %>%
+  rename(sig2 = ".group")
+
+mc_tallo <- merge(mc2, mc1) %>%
+  unite(col = "group", c("sig1", "sig2"), sep = "")
+
+mc_tallo %>% kable(caption = "Stem length mean comparision")
+```
+
+### Numero de hojas
+
+```{r}
+av <-  glm(num_hojas_2meses ~ Sustrato * Carbon,
+                 family = poisson(link = "log"),
+                 data = aclimatacion)
+
+anova(av, test = "Chisq")
+
+mc1 <- emmeans(av, ~ Sustrato | Carbon, type = "response") %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  rename(sig1 = ".group")
+
+mc2 <- emmeans(av, ~ Carbon | Sustrato, type = "response") %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  mutate(across(".group", ~ toupper(.))) %>%
+  rename(sig2 = ".group")
+
+mc_hojas <- merge(mc2, mc1) %>%
+  unite(col = "group", c("sig1", "sig2"), sep = "")
+
+mc_hojas %>% kable(caption = "Number of leaves mean comparision")
+```
+
+### Sobrevivencia
+
+```{r}
+# Número de plantas por unidad experimental
+N <- 8
+
+# Convertir porcentaje a número de plantas vivas
+aclimatacion$vivas <- round(aclimatacion$sobrevivencia / 100 * N)
+
+# Número de plantas muertas
+aclimatacion$muertas <- N - aclimatacion$vivas
+
+av <- glm(cbind(vivas, muertas) ~ Sustrato * Carbon,
+               family = binomial(link = "logit"),
+               data = aclimatacion)
+
+anova(av, test = "Chisq")
+
+mc1 <- emmeans(av, ~ Sustrato | Carbon, type = "response") %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  rename(sig1 = ".group")
+
+mc2 <- emmeans(av, ~ Carbon | Sustrato, type = "response") %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  mutate(across(".group", ~ toupper(.))) %>%
+  rename(sig2 = ".group")
+
+mc_sup <- merge(mc2, mc1) %>%
+  unite(col = "group", c("sig1", "sig2"), sep = "")
+
+mc_sup %>% kable(caption = "Survival mean comparision")
+```
+
+### Table 1
+
+```{r}
+tab_tallo_fmt <- mc_tallo %>%
+  mutate(Tallo = sprintf("%.2f ± %.2f %s", emmean, SE, group)) %>%
+  select(Sustrato, Carbon, Tallo)
+
+tab_hojas_fmt <- mc_hojas %>%
+  mutate(Hojas = sprintf("%.2f ± %.2f %s", rate, SE, group)) %>%
+  select(Sustrato, Carbon, Hojas)
+
+tab_sup_fmt <- mc_sup %>%
+  mutate(Sobrevivencia = sprintf("%.2f ± %.2f %s", prob*100, SE*100, group)) %>%
+  select(Sustrato, Carbon, Sobrevivencia)
+
+tabla_final <- tab_tallo_fmt %>%
+  left_join(tab_hojas_fmt, by = c("Sustrato", "Carbon")) %>%
+  left_join(tab_sup_fmt,   by = c("Sustrato", "Carbon"))
+
+tabla_final
+
+# tabla_final %>%
+#   write_sheet(ss = gs, sheet = "tb1")
 ```
 
 ## RO 2
 
-```{r}
+### Longitud de tallo
 
+```{r}
+av <-  lm(long_tallo ~ PUÑO * CASCARILLA, data = endurecimiento)
+
+anova(av)
+
+mc1 <- emmeans(av, ~ PUÑO | CASCARILLA) %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  rename(sig1 = ".group")
+
+mc2 <- emmeans(av, ~ CASCARILLA | PUÑO) %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  mutate(across(".group", ~ toupper(.))) %>%
+  rename(sig2 = ".group")
+
+mc <- merge(mc2, mc1) %>%
+  unite(col = "group", c("sig1", "sig2"), sep = "")
+
+mc %>% kable(caption = "Stem length mean comparision")
+
+p1 <- mc %>%
+  plot_smr(
+    data = .,
+    type = "line",
+    x = "PUÑO",
+    y = "emmean",
+    group = "CASCARILLA"
+    # , ylimits = c(0, 100, 20)
+    , ylab = "Stem length (cm)",
+    xlab = "Prosopis pods",
+    glab = "Rice husk content",
+    error = "SE",
+    sig = "group",
+    color = T
+  ) 
+
+p1
 ```
 
+### Diametro de tallo
 
+```{r}
+av <-  lm(diam_tallo ~ PUÑO * CASCARILLA, data = endurecimiento)
+
+anova(av)
+
+mc1 <- emmeans(av, ~ PUÑO | CASCARILLA) %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  rename(sig1 = ".group")
+
+mc2 <- emmeans(av, ~ CASCARILLA | PUÑO) %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  mutate(across(".group", ~ toupper(.))) %>%
+  rename(sig2 = ".group")
+
+mc <- merge(mc2, mc1) %>%
+  unite(col = "group", c("sig1", "sig2"), sep = "")
+
+mc %>% kable(caption = "Stem diameter mean comparision")
+
+p2 <- mc %>%
+  plot_smr(
+    data = .,
+    type = "line",
+    x = "PUÑO",
+    y = "emmean",
+    group = "CASCARILLA"
+    # , ylimits = c(0, 100, 20)
+    , ylab = "Stem diameter (cm)",
+    xlab = "Prosopis pods",
+    glab = "Rice husk content",
+    error = "SE",
+    sig = "group",
+    color = T
+  ) 
+
+p2
+```
+
+### Longitud de hoja
+
+```{r}
+av <-  lm(long_hoja ~ PUÑO * CASCARILLA, data = endurecimiento)
+
+anova(av)
+
+mc1 <- emmeans(av, ~ PUÑO | CASCARILLA) %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  rename(sig1 = ".group")
+
+mc2 <- emmeans(av, ~ CASCARILLA | PUÑO) %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  mutate(across(".group", ~ toupper(.))) %>%
+  rename(sig2 = ".group")
+
+mc <- merge(mc2, mc1) %>%
+  unite(col = "group", c("sig1", "sig2"), sep = "")
+
+mc %>% kable(caption = "Leaf length mean comparision")
+
+p3 <- mc %>%
+  plot_smr(
+    data = .,
+    type = "line",
+    x = "PUÑO",
+    y = "emmean",
+    group = "CASCARILLA"
+    # , ylimits = c(0, 100, 20)
+    , ylab = "Leaf length (cm)",
+    xlab = "Prosopis pods",
+    glab = "Rice husk content",
+    error = "SE",
+    sig = "group",
+    color = T
+  ) 
+
+p3
+```
+
+### Ancho de hoja
+
+```{r}
+av <-  lm(ancho_hoja ~ PUÑO * CASCARILLA, data = endurecimiento)
+
+anova(av)
+
+mc1 <- emmeans(av, ~ PUÑO | CASCARILLA) %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  rename(sig1 = ".group")
+
+mc2 <- emmeans(av, ~ CASCARILLA | PUÑO) %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  mutate(across(".group", ~ toupper(.))) %>%
+  rename(sig2 = ".group")
+
+mc <- merge(mc2, mc1) %>%
+  unite(col = "group", c("sig1", "sig2"), sep = "")
+
+mc %>% kable(caption = "Leaf width mean comparision")
+
+p4 <- mc %>%
+  plot_smr(
+    data = .,
+    type = "line",
+    x = "PUÑO",
+    y = "emmean",
+    group = "CASCARILLA"
+    # , ylimits = c(0, 100, 20)
+    , ylab = "Leaf width (cm)",
+    xlab = "Prosopis pods",
+    glab = "Rice husk content",
+    error = "SE",
+    sig = "group",
+    color = T
+  ) 
+
+p4
+```
+
+### Numero de hojas
+
+```{r}
+av <-  glm(num_hojas ~ PUÑO * CASCARILLA,
+                 family = poisson(link = "log"),
+                 data = endurecimiento)
+
+anova(av, test = "Chisq")
+
+mc1 <- emmeans(av, ~  PUÑO | CASCARILLA, type = "response") %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  rename(sig1 = ".group")
+
+mc2 <- emmeans(av, ~ CASCARILLA | PUÑO, type = "response") %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  mutate(across(".group", ~ toupper(.))) %>%
+  rename(sig2 = ".group")
+
+mc <- merge(mc2, mc1) %>%
+  unite(col = "group", c("sig1", "sig2"), sep = "")
+
+mc %>% kable(caption = "Number of leaves mean comparision")
+
+p5 <- mc %>%
+  plot_smr(
+    data = .,
+    type = "line",
+    x = "PUÑO",
+    y = "rate",
+    group = "CASCARILLA"
+    # , ylimits = c(0, 100, 20)
+    , ylab = "Number of leaves",
+    xlab = "Prosopis pods",
+    glab = "Rice husk content",
+    error = "SE",
+    sig = "group",
+    color = T
+  ) 
+
+p5
+```
+
+### Area foliar
+
+```{r}
+av <-  lm(area_foliar ~ PUÑO * CASCARILLA, data = endurecimiento)
+
+anova(av)
+
+mc1 <- emmeans(av, ~ PUÑO | CASCARILLA) %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  rename(sig1 = ".group")
+
+mc2 <- emmeans(av, ~ CASCARILLA | PUÑO) %>%
+  cld(Letters = letters, reversed = T) %>%
+  mutate(across(".group", ~ trimws(.))) %>%
+  mutate(across(".group", ~ toupper(.))) %>%
+  rename(sig2 = ".group")
+
+mc <- merge(mc2, mc1) %>%
+  unite(col = "group", c("sig1", "sig2"), sep = "")
+
+mc %>% kable(caption = "Leaf area mean comparision")
+
+p6 <- mc %>%
+  plot_smr(
+    data = .,
+    type = "line",
+    x = "PUÑO",
+    y = "emmean",
+    group = "CASCARILLA"
+    # , ylimits = c(0, 100, 20)
+    , ylab = "Leaf area (cm^2)",
+    xlab = "Prosopis pods",
+    glab = "Rice husk content",
+    error = "SE",
+    sig = "group",
+    color = T
+  ) +
+  theme(axis.text.y = element_text(angle = 90, vjust = 0.5))
+
+p6
+```
+
+### Figure 1
+
+```{r}
+legend <- cowplot::get_plot_component(p1, 'guide-box-top', return_all = TRUE)
+
+plot <- list(p1 + labs(x = NULL) + theme(legend.position="none"
+                                        , axis.title.x=element_blank()
+                                        , axis.text.x=element_blank()
+                                        , axis.ticks.x=element_blank())
+           , p2 + labs(x = NULL) + theme(legend.position="none"
+                                        , axis.title.x=element_blank()
+                                        , axis.text.x=element_blank()
+                                        , axis.ticks.x=element_blank())
+           , p3 + labs(x = NULL) + theme(legend.position="none"
+                                        , axis.title.x=element_blank()
+                                        , axis.text.x=element_blank()
+                                        , axis.ticks.x=element_blank())
+           , p4 + labs(x = NULL) + theme(legend.position="none"
+                                        , axis.title.x=element_blank()
+                                        , axis.text.x=element_blank()
+                                        , axis.ticks.x=element_blank())
+           , p5 + theme(legend.position="none")
+           , p6 + theme(legend.position="none")
+           ) %>% 
+  plot_grid(plotlist = ., ncol = 2
+            , labels = "auto"
+            ) 
+
+fig <- plot_grid(legend, plot, ncol = 1, align = 'v', rel_heights = c(0.05, 1))
+  
+fig %>% 
+  ggsave2(plot = ., "manuscript/Figure_1.jpg"
+         , units = "cm"
+         , dpi = 600
+         , width = 27
+         , height = 30
+         )
+
+knitr::include_graphics("manuscript/Figure_1.jpg")
+```
+
+#### Multivariate
+
+```{r}
+mv <- endurecimiento %>%
+  group_by(PUÑO, CASCARILLA) %>%
+  summarise(across(where(is.numeric), ~ mean(., na.rm = T))) %>%
+  unite("treat", PUÑO:CASCARILLA, sep = "-") %>%
+  rename(
+    SL = long_tallo,
+    SD = diam_tallo,
+    LL = num_hojas,
+    LW = long_hoja,
+    NL = ancho_hoja,
+    LA = area_foliar
+  )
+
+pca <- mv %>%
+  PCA(scale.unit = T, quali.sup = 1, graph = F)
+
+# summary
+
+pcainfo <- factoextra::get_pca(pca)
+
+sink("files/pca_field.txt")
+cat("\nPrincipal Component Analysis Results\n")
+summary(pca, nbelements = Inf, nb.dec = 2)
+cat("\nCorrelations between variables and dimensions\n")
+pca$cor
+cat("\nContributions of the variables\n")
+pca$contrib
+sink()
+
+f2a <- plot.PCA(
+  x = pca, choix = "var",
+  cex = 0.8,
+  label = "var"
+)
+
+f2b <- plot.PCA(
+  x = pca, choix = "ind",
+  habillage = 1,
+  invisible = c("ind"),
+  cex = 0.8,
+  ylim = c(-3, 3),
+  xlim = c(-4, 4)
+)
+```
+
+#### Figure 2
+
+Principal Component Analysis (PCA).
+
+```{r}
+fig <- list(f2a, f2b) %>%
+  plot_grid(
+    plotlist = ., ncol = 2, nrow = 1,
+    labels = "auto",
+    rel_widths = c(1, 1.3)
+  )
+
+pp <- fig %>%
+  ggsave2(
+    plot = ., "manuscript/Figure_2.jpg", units = "cm",
+    width = 25, height = 10
+  )
+
+knitr::include_graphics(pp)
+```
 
 # References
 

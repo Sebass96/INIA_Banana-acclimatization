@@ -218,8 +218,8 @@ p1 <- mc %>%
     group = "CASCARILLA"
     # , ylimits = c(0, 100, 20)
     , ylab = "Stem length (cm)",
-    xlab = "Prosopis pods",
-    glab = "Rice husk content",
+    xlab = "Leaf litter",
+    glab = "Rice husk",
     error = "SE",
     sig = "group",
     color = T
@@ -260,8 +260,8 @@ p2 <- mc %>%
     group = "CASCARILLA"
     # , ylimits = c(0, 100, 20)
     , ylab = "Stem diameter (cm)",
-    xlab = "Prosopis pods",
-    glab = "Rice husk content",
+    xlab = "Leaf litter",
+    glab = "Rice husk",
     error = "SE",
     sig = "group",
     color = T
@@ -302,8 +302,8 @@ p3 <- mc %>%
     group = "CASCARILLA"
     # , ylimits = c(0, 100, 20)
     , ylab = "Leaf length (cm)",
-    xlab = "Prosopis pods",
-    glab = "Rice husk content",
+    xlab = "Leaf litter",
+    glab = "Rice husk",
     error = "SE",
     sig = "group",
     color = T
@@ -344,8 +344,8 @@ p4 <- mc %>%
     group = "CASCARILLA"
     # , ylimits = c(0, 100, 20)
     , ylab = "Leaf width (cm)",
-    xlab = "Prosopis pods",
-    glab = "Rice husk content",
+    xlab = "Leaf litter",
+    glab = "Rice husk",
     error = "SE",
     sig = "group",
     color = T
@@ -388,8 +388,8 @@ p5 <- mc %>%
     group = "CASCARILLA"
     # , ylimits = c(0, 100, 20)
     , ylab = "Number of leaves",
-    xlab = "Prosopis pods",
-    glab = "Rice husk content",
+    xlab = "Leaf litter",
+    glab = "Rice husk",
     error = "SE",
     sig = "group",
     color = T
@@ -430,8 +430,8 @@ p6 <- mc %>%
     group = "CASCARILLA"
     # , ylimits = c(0, 100, 20)
     , ylab = "Leaf area (cm^2)",
-    xlab = "Prosopis pods",
-    glab = "Rice husk content",
+    xlab = "Leaf litter",
+    glab = "Rice husk",
     error = "SE",
     sig = "group",
     color = T
@@ -526,7 +526,7 @@ f2b <- plot.PCA(
   invisible = c("ind"),
   cex = 0.8,
   ylim = c(-3, 3),
-  xlim = c(-4, 4)
+  xlim = c(-5, 5)
 )
 ```
 
